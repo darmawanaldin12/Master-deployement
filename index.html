@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arvifund Master Deployer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #0a0a0f; color: #e2e8f0; min-height: 100vh; padding: 20px 16px 60px; }
+
+  .header { text-align: center; margin-bottom: 24px; }
+  .logo-title { font-size: 22px; font-weight: 800; color: #f8fafc; letter-spacing: -0.5px; }
+  .logo-title span { color: #3b82f6; }
+  .sub { font-size: 12px; color: #475569; margin-top: 4px; }
+  .badge { display: inline-block; background: #052e16; border: 1px solid #22c55e; color: #4ade80; font-size: 10px; padding: 2px 8px; border-radius: 20px; margin-top: 6px; }
+
+  .card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .card-title { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+
+  .iw { position: relative; }
+  input[type="password"], input[type="text"], textarea {
+    width: 100%; background: #0f172a; border: 1px solid #334155;
+    border-radius: 8px; padding: 11px 44px 11px 13px;
+    color: #f1f5f9; font-size: 13px; font-family: 'Courier New', monospace; outline: none;
+  }
+  textarea { padding: 11px 13px; resize: none; height: 60px; }
+  input:focus, textarea:focus { border-color: #3b82f6; }
+  .eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 16px; }
+  .hint { font-size: 11px; color: #475569; margin-top: 6px; line-height: 1.5; }
+  .hint a { color: #3b82f6; text-decoration: none; }
+
+  .dropzone {
+    border: 2px dashed #334155; border-radius: 10px; padding: 28px 16px;
+    text-align: center; cursor: pointer; background: #0f172a;
+    transition: border-color 0.2s, background 0.2s; position: relative;
+  }
+  .dropzone.drag { border-color: #3b82f6; background: #0d1a2e; }
+  .dropzone.ready { border-color: #22c55e; border-style: solid; background: #031a0e; }
+  .dropzone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .dz-icon { font-size: 32px; margin-bottom: 8px; }
+  .dz-text { font-size: 13px; color: #64748b; line-height: 1.5; }
+  .dz-text strong { color: #94a3b8; }
+
+  #file-list-wrap { display: none; margin-top: 12px; }
+  .file-list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .file-count { font-size: 12px; color: #64748b; }
+  .btn-clear { background: none; border: 1px solid #334155; border-radius: 6px; padding: 4px 10px; font-size: 11px; color: #94a3b8; cursor: pointer; font-family: 'Courier New', monospace; }
+  .file-list { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .file-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    background: #0f172a; border: 1px solid #1e293b; border-radius: 6px;
+    font-size: 11px;
+  }
+  .file-item .fi-path { flex: 1; color: #94a3b8; word-break: break-all; }
+  .file-item .fi-size { color: #475569; flex-shrink: 0; }
+  .file-item .fi-status { width: 16px; flex-shrink: 0; text-align: center; }
+  .file-item.ok { border-color: #166534; background: #052e16; }
+  .file-item.ok .fi-path { color: #4ade80; }
+  .file-item.err { border-color: #7f1d1d; background: #1c0a0a; }
+  .file-item.err .fi-path { color: #f87171; }
+  .file-item.skip { opacity: 0.4; }
+
+  .opt-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; color: #94a3b8; }
+  .opt-row:last-child { margin-bottom: 0; }
+  input[type="checkbox"] { width: 15px; height: 15px; accent-color: #3b82f6; cursor: pointer; flex-shrink: 0; }
+
+  .progress-wrap { background: #1e293b; border-radius: 6px; height: 6px; margin-top: 12px; overflow: hidden; display: none; }
+  .progress-wrap.show { display: block; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); border-radius: 6px; width: 0%; transition: width 0.3s; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; }
+  .btn {
+    flex: 1; padding: 13px; border: none; border-radius: 10px;
+    color: white; font-size: 14px; font-weight: 700;
+    font-family: 'Courier New', monospace; cursor: pointer; transition: background 0.2s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: #3b82f6; }
+  .btn-primary:hover:not(:disabled) { background: #2563eb; }
+  .btn-primary:disabled { background: #1e3a5f; color: #64748b; cursor: not-allowed; }
+  .btn-ghost { background: #1e293b; color: #94a3b8; flex: 0 0 auto; padding: 13px 16px; }
+  .btn-ghost:hover { background: #334155; }
+
+  .log { background: #030712; border: 1px solid #1e293b; border-radius: 10px; padding: 12px 14px; margin-top: 14px; font-size: 11px; line-height: 1.8; max-height: 220px; overflow-y: auto; display: none; }
+  .log.show { display: block; }
+  .l-ok   { color: #22c55e; }
+  .l-err  { color: #ef4444; }
+  .l-info { color: #94a3b8; }
+  .l-warn { color: #f59e0b; }
+  .l-head { color: #60a5fa; font-weight: 700; }
+
+  .result { display: none; padding: 14px 16px; border-radius: 10px; margin-top: 14px; font-size: 13px; font-weight: 600; text-align: center; line-height: 1.7; }
+  .result.success { display: block; background: #052e16; border: 1px solid #22c55e; color: #4ade80; }
+  .result.partial { display: block; background: #1c1207; border: 1px solid #f59e0b; color: #fbbf24; }
+  .result.error   { display: block; background: #1c0a0a; border: 1px solid #ef4444; color: #f87171; }
+
+  .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .warn-box { background: #1c1207; border: 1px solid #92400e; border-radius: 8px; padding: 9px 12px; font-size: 11px; color: #d97706; margin-top: 10px; line-height: 1.5; }
+  .info-box { background: #0d1a2e; border: 1px solid #1e3a5f; border-radius: 8px; padding: 9px 12px; font-size: 11px; color: #60a5fa; margin-top: 10px; line-height: 1.6; }
+
+  .stats { display: flex; gap: 8px; margin-top: 12px; }
+  .stat { flex: 1; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 8px; text-align: center; }
+  .stat-val { font-size: 18px; font-weight: 800; color: #f8fafc; }
+  .stat-lbl { font-size: 10px; color: #475569; margin-top: 2px; }
+  .stat.ok .stat-val { color: #22c55e; }
+  .stat.err .stat-val { color: #ef4444; }
+  .stat.skip .stat-val { color: #f59e0b; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #0f172a; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-title">Arvi<span>Fund</span> Deployer</div>
+  <div class="sub">Upload ZIP → 1 commit langsung ke GitHub</div>
+  <div class="badge">✓ Single Commit Mode</div>
+</div>
+
+<div class="card">
+  <div class="card-title">🔑 GitHub Token</div>
+  <div class="iw">
+    <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
+    <button class="eye" onclick="var i=document.getElementById('token');i.type=i.type==='password'?'text':'password'">👁</button>
+  </div>
+  <div class="hint">
+    Buat token: <a href="https://github.com/settings/tokens/new?scopes=repo&description=ArvifundDeploy" target="_blank">github.com/settings/tokens</a> → centang <strong>repo</strong>
+  </div>
+  <div class="warn-box">⚠️ Token hanya dikirim langsung ke GitHub API dari browser kamu. Tidak ke server lain.</div>
+</div>
+
+<div class="card">
+  <div class="card-title">✏️ Commit Message</div>
+  <textarea id="commit-msg" placeholder="deploy: update multiple files"></textarea>
+  <div class="hint">Semua file dalam ZIP akan digabung dalam 1 commit dengan message ini.</div>
+</div>
+
+<div class="card">
+  <div class="card-title">📦 Upload ZIP</div>
+  <div class="dropzone" id="dropzone"
+    ondragover="event.preventDefault();this.classList.add('drag')"
+    ondragleave="this.classList.remove('drag')"
+    ondrop="event.preventDefault();this.classList.remove('drag');handleDrop(event)">
+    <input type="file" accept=".zip" onchange="handleFile(this.files[0])" />
+    <div class="dz-icon" id="dz-icon">📂</div>
+    <div class="dz-text" id="dz-text">
+      <strong>Tap untuk pilih file ZIP</strong><br>
+      Struktur folder di dalam ZIP = path di repo<br>
+      <span style="font-size:10px;color:#334155">Contoh: app/dashboard/page.js → push ke app/dashboard/page.js</span>
+    </div>
+  </div>
+
+  <div id="file-list-wrap">
+    <div class="file-list-header">
+      <div class="file-count" id="file-count"></div>
+      <button class="btn-clear" onclick="resetAll()">✕ Reset</button>
+    </div>
+    <div class="file-list" id="file-list"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">⚙️ Opsi</div>
+  <div class="opt-row">
+    <input type="checkbox" id="opt-skip-ds" checked />
+    <label for="opt-skip-ds">Skip file sistem (.DS_Store, Thumbs.db, __MACOSX)</label>
+  </div>
+  <div class="opt-row">
+    <input type="checkbox" id="opt-skip-node" checked />
+    <label for="opt-skip-node">Skip node_modules & .next</label>
+  </div>
+  <div class="opt-row">
+    <input type="checkbox" id="opt-skip-env" checked />
+    <label for="opt-skip-env">Skip file sensitif (.env, .env.local, secrets)</label>
+  </div>
+  <div class="opt-row">
+    <input type="checkbox" id="opt-dry" />
+    <label for="opt-dry">Dry run (preview saja, tidak benar-benar push)</label>
+  </div>
+  <div class="info-box">
+    ℹ️ <strong>Single Commit Mode:</strong> Semua file di-push dalam <strong>1 commit atomik</strong> menggunakan Git Trees API. Vercel hanya akan trigger deploy 1x dan tidak ada file yang "setengah masuk".
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="btn btn-ghost" onclick="clearLog()">🗑 Log</button>
+  <button class="btn btn-primary" id="btn-push" onclick="startPush()" disabled>🚀 Push ke GitHub</button>
+</div>
+
+<div class="progress-wrap" id="progress-wrap">
+  <div class="progress-bar" id="progress-bar"></div>
+</div>
+
+<div class="stats" id="stats" style="display:none">
+  <div class="stat ok"><div class="stat-val" id="stat-ok">0</div><div class="stat-lbl">Di-push</div></div>
+  <div class="stat err"><div class="stat-val" id="stat-err">0</div><div class="stat-lbl">Gagal</div></div>
+  <div class="stat skip"><div class="stat-val" id="stat-skip">0</div><div class="stat-lbl">Diskip</div></div>
+</div>
+
+<div class="log" id="log"></div>
+<div class="result" id="result"></div>
+
+<script>
+const OWNER = 'darmawanaldin12'
+const REPO  = 'Arvifund'
+
+let zipFiles = []
+
+function shouldSkip(path) {
+  const skipDs   = document.getElementById('opt-skip-ds').checked
+  const skipNode = document.getElementById('opt-skip-node').checked
+  const skipEnv  = document.getElementById('opt-skip-env').checked
+  const name = path.split('/').pop()
+  const lower = path.toLowerCase()
+  if (skipDs) {
+    if (name === '.DS_Store' || name === 'Thumbs.db' || lower.includes('__macosx')) return 'sistem'
+  }
+  if (skipNode) {
+    if (lower.includes('node_modules/') || lower.includes('.next/')) return 'build'
+  }
+  if (skipEnv) {
+    if (name.startsWith('.env') || lower.includes('secret')) return 'sensitif'
+  }
+  if (name === '' || path.endsWith('/')) return 'folder'
+  return null
+}
+
+async function handleDrop(e) {
+  const file = e.dataTransfer.files[0]
+  if (file) await handleFile(file)
+}
+
+async function handleFile(file) {
+  if (!file || !file.name.endsWith('.zip')) {
+    alert('Hanya file .zip yang didukung!'); return
+  }
+  log('📦 Membaca ZIP: ' + file.name + ' (' + (file.size/1024).toFixed(1) + ' KB)', 'head')
+  try {
+    const zip = await JSZip.loadAsync(file)
+    zipFiles = []
+    const promises = []
+    zip.forEach((relPath, zipEntry) => {
+      if (zipEntry.dir) return
+      promises.push(
+        zipEntry.async('base64').then(b64 => {
+          zipFiles.push({ path: relPath, b64, size: zipEntry._data?.uncompressedSize || 0 })
+        })
+      )
+    })
+    await Promise.all(promises)
+    zipFiles.sort((a, b) => a.path.localeCompare(b.path))
+    log('✓ ZIP berhasil dibaca: ' + zipFiles.length + ' file ditemukan', 'ok')
+    renderFileList()
+    // Auto-generate commit message dari nama zip
+    const msgEl = document.getElementById('commit-msg')
+    if (!msgEl.value) {
+      const zipName = file.name.replace('.zip', '')
+      msgEl.value = 'deploy: ' + zipName
+    }
+  } catch(e) {
+    log('✗ Gagal baca ZIP: ' + e.message, 'err')
+  }
+}
+
+function renderFileList() {
+  const list = document.getElementById('file-list')
+  const wrap = document.getElementById('file-list-wrap')
+  const dz   = document.getElementById('dropzone')
+  list.innerHTML = ''
+  let shown = 0, skipped = 0
+  zipFiles.forEach(f => {
+    const skipReason = shouldSkip(f.path)
+    const item = document.createElement('div')
+    item.className = 'file-item' + (skipReason ? ' skip' : '')
+    item.id = 'fi-' + f.path.replace(/[^a-zA-Z0-9]/g, '_')
+    item.innerHTML = `
+      <div class="fi-status">${skipReason ? '⊘' : '○'}</div>
+      <div class="fi-path">${f.path}${skipReason ? ' <span style="color:#475569">[skip:'+skipReason+']</span>' : ''}</div>
+      <div class="fi-size">${formatSize(f.size)}</div>
+    `
+    list.appendChild(item)
+    if (skipReason) skipped++; else shown++
+  })
+  document.getElementById('file-count').textContent =
+    shown + ' file akan di-push dalam 1 commit' + (skipped > 0 ? ' · ' + skipped + ' diskip' : '')
+  wrap.style.display = 'block'
+  dz.classList.add('ready')
+  document.getElementById('dz-icon').textContent = '✅'
+  document.getElementById('dz-text').innerHTML =
+    '<strong style="color:#4ade80">' + zipFiles.length + ' file siap</strong><br>' +
+    '<span style="font-size:11px;color:#475569">Tap untuk ganti ZIP</span>'
+  document.getElementById('btn-push').disabled = (shown === 0)
+}
+
+function formatSize(bytes) {
+  if (!bytes) return '?'
+  if (bytes < 1024) return bytes + 'B'
+  return (bytes/1024).toFixed(1) + 'KB'
+}
+
+function resetAll() {
+  zipFiles = []
+  document.getElementById('file-list').innerHTML = ''
+  document.getElementById('file-list-wrap').style.display = 'none'
+  document.getElementById('dropzone').classList.remove('ready')
+  document.getElementById('dz-icon').textContent = '📂'
+  document.getElementById('dz-text').innerHTML =
+    '<strong>Tap untuk pilih file ZIP</strong><br>Struktur folder di dalam ZIP = path di repo<br><span style="font-size:10px;color:#334155">Contoh: app/dashboard/page.js → push ke app/dashboard/page.js</span>'
+  document.getElementById('btn-push').disabled = true
+  document.getElementById('progress-wrap').classList.remove('show')
+  document.getElementById('progress-bar').style.width = '0%'
+  document.getElementById('stats').style.display = 'none'
+  document.getElementById('result').style.display = 'none'
+}
+
+function log(msg, cls='info') {
+  const box = document.getElementById('log')
+  box.classList.add('show')
+  const d = document.createElement('div')
+  d.className = 'l-' + cls
+  d.innerHTML = msg
+  box.appendChild(d)
+  box.scrollTop = box.scrollHeight
+}
+
+function clearLog() {
+  document.getElementById('log').innerHTML = ''
+}
+
+function setProgress(pct) {
+  document.getElementById('progress-wrap').classList.add('show')
+  document.getElementById('progress-bar').style.width = pct + '%'
+}
+
+function apiHeaders(token) {
+  return {
+    Authorization: 'token ' + token,
+    Accept: 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json'
+  }
+}
+
+// ─── Git Trees API (single commit) ───────────────────────────────────────────
+
+async function getLatestCommitSHA(token) {
+  const res = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/git/ref/heads/main`,
+    { headers: apiHeaders(token) }
+  )
+  if (!res.ok) throw new Error('Gagal ambil ref main: ' + res.status)
+  const data = await res.json()
+  return data.object.sha
+}
+
+async function getTreeSHA(token, commitSHA) {
+  const res = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/git/commits/${commitSHA}`,
+    { headers: apiHeaders(token) }
+  )
+  if (!res.ok) throw new Error('Gagal ambil commit: ' + res.status)
+  const data = await res.json()
+  return data.tree.sha
+}
+
+async function createBlob(token, b64) {
+  const res = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/git/blobs`,
+    {
+      method: 'POST',
+      headers: apiHeaders(token),
+      body: JSON.stringify({ content: b64, encoding: 'base64' })
+    }
+  )
+  if (!res.ok) throw new Error('Gagal create blob: ' + res.status)
+  const data = await res.json()
+  return data.sha
+}
+
+async function createTree(token, baseTreeSHA, treeItems) {
+  const res = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/git/trees`,
+    {
+      method: 'POST',
+      headers: apiHeaders(token),
+      body: JSON.stringify({ base_tree: baseTreeSHA, tree: treeItems })
+    }
+  )
+  if (!res.ok) throw new Error('Gagal create tree: ' + res.status)
+  const data = await res.json()
+  return data.sha
+}
+
+async function createCommit(token, message, treeSHA, parentSHA) {
+  const res = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/git/commits`,
+    {
+      method: 'POST',
+      headers: apiHeaders(token),
+      body: JSON.stringify({ message, tree: treeSHA, parents: [parentSHA] })
+    }
+  )
+  if (!res.ok) throw new Error('Gagal create commit: ' + res.status)
+  const data = await res.json()
+  return data.sha
+}
+
+async function updateRef(token, commitSHA) {
+  const res = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/git/refs/heads/main`,
+    {
+      method: 'PATCH',
+      headers: apiHeaders(token),
+      body: JSON.stringify({ sha: commitSHA })
+    }
+  )
+  if (!res.ok) throw new Error('Gagal update ref: ' + res.status)
+}
+
+// ─── Strip ZIP root folder prefix ────────────────────────────────────────────
+// Jika semua file ada di dalam 1 subfolder (e.g. "MyApp/"), strip prefix itu
+function stripRootPrefix(files) {
+  if (files.length === 0) return files
+  const parts = files[0].path.split('/')
+  if (parts.length < 2) return files
+  const prefix = parts[0] + '/'
+  const allSame = files.every(f => f.path.startsWith(prefix))
+  if (allSame) {
+    return files.map(f => ({ ...f, path: f.path.slice(prefix.length) }))
+  }
+  return files
+}
+
+// ─── Main push function ───────────────────────────────────────────────────────
+async function startPush() {
+  const token = document.getElementById('token').value.trim()
+  if (!token) { alert('Masukkan token dulu!'); return }
+  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) { alert('Token tidak valid!'); return }
+  if (zipFiles.length === 0) { alert('Upload ZIP dulu!'); return }
+
+  const isDry = document.getElementById('opt-dry').checked
+  const commitMsg = document.getElementById('commit-msg').value.trim() || 'deploy: update files'
+
+  let toProcess = zipFiles.filter(f => !shouldSkip(f.path))
+  toProcess = stripRootPrefix(toProcess)
+
+  const skip = zipFiles.length - toProcess.length
+
+  const btn = document.getElementById('btn-push')
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span>' + (isDry ? 'Preview...' : 'Mempersiapkan...')
+
+  document.getElementById('result').style.display = 'none'
+  document.getElementById('stats').style.display = 'flex'
+  document.getElementById('stat-ok').textContent = toProcess.length
+  document.getElementById('stat-err').textContent = '0'
+  document.getElementById('stat-skip').textContent = skip
+
+  log('\n' + (isDry ? '🔍 DRY RUN — tidak ada yang dikirim ke GitHub' : '🚀 Memulai single-commit push: ' + toProcess.length + ' file → ' + OWNER + '/' + REPO), 'head')
+  log('📝 Commit message: "' + commitMsg + '"', 'info')
+
+  if (isDry) {
+    toProcess.forEach((f, i) => {
+      log('[' + (i+1) + '/' + toProcess.length + '] ' + f.path + ' (' + formatSize(f.size) + ')', 'info')
+      const itemId = 'fi-' + zipFiles.find(z => z.b64 === f.b64)?.path.replace(/[^a-zA-Z0-9]/g, '_')
+      const item = document.getElementById(itemId)
+      if (item) { item.className = 'file-item ok'; item.querySelector('.fi-status').textContent = '✓' }
+    })
+    setProgress(100)
+    const result = document.getElementById('result')
+    result.className = 'result partial'
+    result.innerHTML = '🔍 Dry run selesai<br><small>' + toProcess.length + ' file akan di-push dalam 1 commit, ' + skip + ' diskip</small>'
+    log('\nDry run selesai: ' + toProcess.length + ' file · ' + skip + ' diskip', 'head')
+    btn.disabled = false
+    btn.innerHTML = '🔄 Push Lagi'
+    return
+  }
+
+  try {
+    // Step 1: Get latest commit SHA
+    setProgress(10)
+    log('⏳ Mengambil commit terbaru dari main...', 'info')
+    btn.innerHTML = '<span class="spinner"></span>Step 1/4: Ambil HEAD...'
+    const latestCommitSHA = await getLatestCommitSHA(token)
+    log('  → HEAD: ' + latestCommitSHA.substring(0, 8) + '...', 'ok')
+
+    // Step 2: Get base tree SHA
+    setProgress(20)
+    log('⏳ Mengambil base tree...', 'info')
+    btn.innerHTML = '<span class="spinner"></span>Step 2/4: Buat blobs...'
+    const baseTreeSHA = await getTreeSHA(token, latestCommitSHA)
+    log('  → Base tree: ' + baseTreeSHA.substring(0, 8) + '...', 'ok')
+
+    // Step 3: Create blobs for each file
+    log('⏳ Membuat blob untuk ' + toProcess.length + ' file...', 'info')
+    const treeItems = []
+    for (let i = 0; i < toProcess.length; i++) {
+      const f = toProcess[i]
+      setProgress(20 + Math.round((i / toProcess.length) * 50))
+      log('[' + (i+1) + '/' + toProcess.length + '] blob: ' + f.path, 'info')
+      const blobSHA = await createBlob(token, f.b64)
+      treeItems.push({
+        path: f.path,
+        mode: '100644',
+        type: 'blob',
+        sha: blobSHA
+      })
+      log('  ✓ blob ' + blobSHA.substring(0, 8) + '...', 'ok')
+    }
+
+    // Step 4: Create tree
+    setProgress(72)
+    log('⏳ Membuat tree...', 'info')
+    btn.innerHTML = '<span class="spinner"></span>Step 3/4: Buat commit...'
+    const newTreeSHA = await createTree(token, baseTreeSHA, treeItems)
+    log('  → New tree: ' + newTreeSHA.substring(0, 8) + '...', 'ok')
+
+    // Step 5: Create commit
+    setProgress(85)
+    log('⏳ Membuat commit...', 'info')
+    const newCommitSHA = await createCommit(token, commitMsg, newTreeSHA, latestCommitSHA)
+    log('  → Commit SHA: ' + newCommitSHA.substring(0, 8) + '...', 'ok')
+
+    // Step 6: Update ref
+    setProgress(95)
+    log('⏳ Update ref main...', 'info')
+    btn.innerHTML = '<span class="spinner"></span>Step 4/4: Update ref...'
+    await updateRef(token, newCommitSHA)
+
+    setProgress(100)
+
+    // Update UI: mark all files as ok
+    toProcess.forEach(f => {
+      const origFile = zipFiles.find(z => z.b64 === f.b64)
+      if (origFile) {
+        const itemId = 'fi-' + origFile.path.replace(/[^a-zA-Z0-9]/g, '_')
+        const item = document.getElementById(itemId)
+        if (item) { item.className = 'file-item ok'; item.querySelector('.fi-status').textContent = '✓' }
+      }
+    })
+
+    document.getElementById('stat-ok').textContent = toProcess.length
+    document.getElementById('stat-err').textContent = '0'
+
+    const result = document.getElementById('result')
+    result.className = 'result success'
+    result.innerHTML =
+      '✅ ' + toProcess.length + ' file berhasil di-push dalam <strong>1 commit</strong>!<br>' +
+      '<small style="font-size:11px;opacity:0.8">SHA: ' + newCommitSHA.substring(0, 12) + '... · ' + skip + ' file diskip</small>'
+
+    log('\n✅ Selesai! ' + toProcess.length + ' file → 1 commit → Vercel trigger 1x deploy', 'head')
+
+  } catch (e) {
+    setProgress(100)
+    document.getElementById('stat-err').textContent = '1'
+    document.getElementById('stat-ok').textContent = '0'
+    const result = document.getElementById('result')
+    result.className = 'result error'
+    result.innerHTML = '❌ Gagal: ' + e.message
+    log('\n✗ Error: ' + e.message, 'err')
+    log('Cek: token valid? repo benar? koneksi internet?', 'warn')
+  }
+
+  btn.disabled = false
+  btn.innerHTML = '🔄 Push Lagi'
+}
+</script>
+</body>
+</html>
